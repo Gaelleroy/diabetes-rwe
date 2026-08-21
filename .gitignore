@@ -1,0 +1,19 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdat
+# Data never goes in version control
+/data/
+/data-raw/*.csv
+/data-raw/*.zip
+/output/
+
+# R session & environment
+.Rhistory
+.RData
+.Rproj.user/
+.Renviron
+
+# renv: track the lockfile, ignore the installed library
+renv/library/
+renv/staging/a
