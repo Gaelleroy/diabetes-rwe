@@ -18,10 +18,11 @@ jobs:
       - name: Restore renv environment
         uses: r-lib/actions/setup-renv@v2
 
-      - name: Download data and build cohort
+      - name: Download data and build pipeline
         run: |
           Rscript data-raw/download_desynpuf.R
           Rscript R/01_prepare_cohort.R
+          Rscript R/03_build_outcomes.R
 
       - name: Run data-quality tests
         run: Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'
