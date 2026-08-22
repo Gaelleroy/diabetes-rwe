@@ -20,28 +20,19 @@ bene_2008 <- bene_2008 |>
   )
 
 # --- Cohort inclusion/exclusion (with attrition tracking) ------------------
-# Baseline population = everyone present in the 2008 Summary File (Criterion 1)
 n_baseline <- nrow(bene_2008)
 
-# Exclusion: missing/implausible birth date or sex (data quality)
 cohort <- bene_2008 |>
-  filter(!is.na(BENE_BIRTH_DT),
-         BENE_SEX_IDENT_CD %in% c(1, 2))
+  filter(!is.na(BENE_BIRTH_DT), BENE_SEX_IDENT_CD %in% c(1, 2))
 n_after_dq <- nrow(cohort)
 
-# Inclusion: age >= 65 at index
-cohort <- cohort |>
-  filter(age_at_index >= 65)
+cohort <- cohort |> filter(age_at_index >= 65)
 n_after_age <- nrow(cohort)
 
-# Inclusion: alive at index (no death recorded during baseline 2008)
-cohort <- cohort |>
-  filter(is.na(BENE_DEATH_DT))
+cohort <- cohort |> filter(is.na(BENE_DEATH_DT))
 n_after_alive <- nrow(cohort)
 
-# Inclusion: continuously enrolled all of 2008 (Part A AND Part B = 12 mo)
-cohort <- cohort |>
-  filter(BENE_HI_CVRAGE_TOT_MONS == 12 & BENE_SMI_CVRAGE_TOT_MONS == 12)
+cohort <- cohort |> filter(BENE_HI_CVRAGE_TOT_MONS == 12 & BENE_SMI_CVRAGE_TOT_MONS == 12)
 n_after_enroll <- nrow(cohort)
 
 # --- Attrition log ---------------------------------------------------------
@@ -51,4 +42,9 @@ message("  After DQ (dob/sex):   ", n_after_dq,     " (removed ", n_baseline - n
 message("  After age >= 65:      ", n_after_age,    " (removed ", n_after_dq - n_after_age, ")")
 message("  After alive at idx:   ", n_after_alive,  " (removed ", n_after_age - n_after_alive, ")")
 message("  After cont. enroll:   ", n_after_enroll, " (removed ", n_after_alive - n_after_enroll, ")")
+
+# --- Save analytic cohort for downstream scripts ---------------------------
+dir.create("data", showWarnings = FALSE)
+saveRDS(cohort, "data/cohort.rds")
+message("Saved cohort to data/cohort.rds (", nrow(cohort), " rows)")
 
