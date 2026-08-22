@@ -1,0 +1,131 @@
+---
+title: "Diabetes and Healthcare Utilization Among Medicare Beneficiaries"
+subtitle: "A claims-based comparative cohort study (CMS DE-SynPUF, synthetic data)"
+author: "Gael Songwa"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    df-print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(readr)
+root <- rprojroot::find_root(rprojroot::is_rstudio_project)
+cohort   <- readRDS(file.path(root, "data", "cohort.rds"))
+co       <- readRDS(file.path(root, "data", "cohort_outcomes.rds"))
+m_inp    <- readRDS(file.path(root, "data", "model_inpatient.rds"))
+m_out    <- readRDS(file.path(root, "data", "model_outpatient.rds"))
+```
+
+# Background
+
+Diabetes is associated with substantial healthcare use, but crude comparisons are
+confounded by age and comorbidity. This study estimates the **independent**
+association between diabetes and 2009 healthcare utilization in a Medicare cohort,
+adjusting for measured confounders.
+
+> **Data caveat.** This analysis uses CMS DE-SynPUF *synthetic* claims. It mirrors the
+> structure of Medicare data but has no inferential validity; results are a methods
+> demonstration, not clinical evidence.
+
+# Methods
+
+**Design.** Retrospective comparative cohort. Baseline year 2008; index date
+2009-01-01; follow-up year 2009.
+
+**Population.** Beneficiaries present in the 2008 Beneficiary Summary File, aged
+≥ 65 at index, alive at index, and continuously enrolled (Part A & B, 12 months)
+in 2008.
+
+**Exposure.** Diabetes at baseline (`SP_DIABETES`).
+
+**Outcomes.** Counts of 2009 inpatient admissions (primary) and outpatient visits
+(secondary).
+
+**Analysis.** Negative binomial regression (chosen over Poisson after confirming
+overdispersion), adjusted for age, sex, and comorbidities (CHF, CKD, COPD, IHD).
+Rate ratios (RR) reported with 95% confidence intervals.
+
+# Results
+
+## Cohort attrition
+
+```{r attrition}
+tibble::tribble(
+  ~Step,                                   ~N,
+  "Baseline population (2008 file)",       116352L,
+  "After data-quality (birth date / sex)", 116352L,
+  "After age >= 65",                       98110L,
+  "After alive at index",                  96528L,
+  "After continuous enrollment",           80988L
+)
+```
+
+The final analytic cohort included **`r nrow(co)`** beneficiaries
+(`r sum(co$has_diabetes)` with diabetes, `r sum(!co$has_diabetes)` without).
+
+## Table 1: baseline characteristics by diabetes group
+
+```{r table1}
+co |>
+  group_by(Diabetes = has_diabetes) |>
+  summarise(
+    N            = n(),
+    `Age median` = median(age_at_index),
+    `% female`   = round(mean(BENE_SEX_IDENT_CD == 2) * 100, 1),
+    `% CHF`      = round(mean(SP_CHF == 1) * 100, 1),
+    `% CKD`      = round(mean(SP_CHRNKIDN == 1) * 100, 1),
+    `% COPD`     = round(mean(SP_COPD == 1) * 100, 1),
+    `% IHD`      = round(mean(SP_ISCHMCHT == 1) * 100, 1),
+    .groups = "drop"
+  )
+```
+
+Diabetics were older and substantially more comorbid across all conditions,
+motivating covariate adjustment.
+
+## Model results: adjusted rate ratios
+
+```{r results-inpatient}
+round(m_inp$rr_table, 3)
+```
+
+*Inpatient admissions.* Adjusted RR for diabetes:
+**`r round(m_inp$rr_table["has_diabetesTRUE", "RR"], 2)`**
+(95% CI `r round(m_inp$rr_table["has_diabetesTRUE", "CI_low"], 2)`–
+`r round(m_inp$rr_table["has_diabetesTRUE", "CI_high"], 2)`).
+
+```{r results-outpatient}
+round(m_out$rr_table, 3)
+```
+
+*Outpatient visits.* Adjusted RR for diabetes:
+**`r round(m_out$rr_table["has_diabetesTRUE", "RR"], 2)`**
+(95% CI `r round(m_out$rr_table["has_diabetesTRUE", "CI_low"], 2)`–
+`r round(m_out$rr_table["has_diabetesTRUE", "CI_high"], 2)`).
+
+# Interpretation
+
+After adjustment, diabetes was independently associated with roughly two-thirds
+more inpatient admissions and outpatient visits. The crude admission association
+(RR ~3.1) shrank markedly after adjustment (RR ~1.6), illustrating substantial
+confounding by age and comorbidity; the outpatient association shrank less,
+consistent with comorbidities confounding hospitalizations more than routine visits.
+
+**Limitations.** Synthetic data (no inferential validity); comorbidities may lie on
+the causal pathway from diabetes, so adjustment may underestimate the total effect;
+a fixed one-year window ignores differential follow-up time.
+
+# Reproducibility
+
+Environment pinned with `renv`; pipeline (`download → cohort → outcomes → models`)
+and data-quality tests run in CI on every change.
+
