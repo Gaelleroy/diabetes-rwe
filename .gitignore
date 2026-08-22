@@ -17,3 +17,5 @@
 # renv: track the lockfile, ignore the installed library
 renv/library/
 renv/staging/a
+/.quarto/
+reports/*_files/
